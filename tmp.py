@@ -22,31 +22,30 @@ def get_remote_team_data():
     data = ';'.join(data.split(';')[:-1])
 
     json_dict = json.loads(data)
+    json_dict = json_dict.get("page").get("content")
     return json_dict
 
 
-def get_teams_data(reload=False):
-    file_name = 'cache/teams.json'
+def query_local_cache(filename, remote_func, reload=False):
+    filepath = f"cache/{filename}"
     os.makedirs('cache', exist_ok=True)
     if reload is True:
         # force reload cache
         print('Force reload')
-        json_dict = get_remote_team_data()
-        json_dict = json_dict.get('page').get('content')
-        with open(file_name, 'w') as f:
+        json_dict = remote_func()
+        with open(filepath, 'w') as f:
             json.dump(json_dict, f)
     else:
         try:
-            with open(file_name, 'r') as f:
+            with open(filepath, 'r') as f:
                 # cache hit
                 print('Cache hit')
                 json_dict = json.load(f)
         except FileNotFoundError:
             # cache miss, reload cache
             print('Cache miss')
-            json_dict = get_remote_team_data()
-            json_dict = json_dict.get('page').get('content')
-            with open(file_name, 'w') as f:
+            json_dict = remote_func()
+            with open(filepath, 'w') as f:
                 json.dump(json_dict, f)
     return json_dict
 
@@ -85,7 +84,7 @@ def temp(divisions):
 
 
 def main():
-    json_dict = get_teams_data()
+    json_dict = query_local_cache("teams.json", get_remote_team_data)
     nfl_json = json_dict.get('teams').get('nfl')
     divisions = []
     for element in nfl_json:
