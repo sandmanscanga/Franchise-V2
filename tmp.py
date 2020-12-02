@@ -1,31 +1,9 @@
 from bs4 import BeautifulSoup
 import requests
 import json
+import os
+import sqlite3
 
-'''
-def get_remote_data():
-    # make web request
-    # return data
-
-
-def get_team_data(reload=False):
-    # if reload is False:
-        # first check cache
-        # if cache miss:
-            # data = get_remote_data()
-            # write data to disk
-        # else
-            # load data from cache
-    # else:
-        # data = get_remote_data()
-        # write data to disk
-    # return data
-
-
-def main():
-    data = get_team_data()
-
-'''
 
 def get_remote_team_data():
     '''Get NFL team data from espn site'''
@@ -49,10 +27,12 @@ def get_remote_team_data():
 
 def get_teams_data(reload=False):
     file_name = 'cache/teams.json'
+    os.makedirs('cache', exist_ok=True)
     if reload is True:
         # force reload cache
         print('Force reload')
         json_dict = get_remote_team_data()
+        json_dict = json_dict.get('page').get('content')
         with open(file_name, 'w') as f:
             json.dump(json_dict, f)
     else:
@@ -65,14 +45,62 @@ def get_teams_data(reload=False):
             # cache miss, reload cache
             print('Cache miss')
             json_dict = get_remote_team_data()
+            json_dict = json_dict.get('page').get('content')
             with open(file_name, 'w') as f:
                 json.dump(json_dict, f)
     return json_dict
 
 
+def temp(divisions):
+    division_data = []
+    for i, division in enumerate(divisions):
+        division_data.append((i, division))
+
+    with sqlite3.connect('database.db') as db:
+        cursor = db.cursor()
+        cursor.execute('DROP TABLE IF EXISTS Division')
+        cursor.execute('''
+            CREATE TABLE Division(
+                division_id INT NOT NULL PRIMARY KEY,
+                division_name TEXT NOT NULL
+            )
+        ''')
+        cursor.executemany('INSERT INTO Division VALUES (?, ?)', division_data)
+        cursor.execute('SELECT * FROM Division')
+        rows = cursor.fetchall()
+    return rows
+
+
+# class Team:
+#     team_id = None
+#     team_fullname = None
+#     team_name = None
+#     team_logo = None
+#     team_abbr = None
+#     team_division = None
+
+
+# class Division:
+#     division_name = None
+
+
 def main():
-    json_dict = get_teams_data(reload=True)
-    # print(json.dumps(json_dict, indent=2))
+    json_dict = get_teams_data()
+    nfl_json = json_dict.get('teams').get('nfl')
+    divisions = []
+    for element in nfl_json:
+        division = element.get('name')
+        divisions.append(division)
+        for team in element.get('teams'):
+            team_id = team.get('id')
+            team_fullname = team.get('name')
+            team_name = team.get('shortName')
+            team_logo = team.get('logo')
+            team_abbr = team.get('abbrev')
+
+    rows = temp(divisions)
+    for row in rows:
+        print(row)
 
 
 if __name__ == '__main__':
