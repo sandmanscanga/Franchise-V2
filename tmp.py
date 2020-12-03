@@ -27,6 +27,14 @@ def get_remote_team_data():
 
 
 def query_local_cache(filename, remote_func, reload=False):
+    '''Handle data cache
+    
+        Check for cache file
+        If hit, load cache
+        If miss, run remote func
+
+    '''
+
     filepath = f"cache/{filename}"
     os.makedirs('cache', exist_ok=True)
     if reload is True:
@@ -50,24 +58,25 @@ def query_local_cache(filename, remote_func, reload=False):
     return json_dict
 
 
-def temp(divisions):
-    division_data = []
-    for i, division in enumerate(divisions):
-        division_data.append((i, division))
+# Database
+# def create_division_table(divisions):
+#     division_data = []
+#     for i, division in enumerate(divisions):
+#         division_data.append((i, division))
 
-    with sqlite3.connect('database.db') as db:
-        cursor = db.cursor()
-        cursor.execute('DROP TABLE IF EXISTS Division')
-        cursor.execute('''
-            CREATE TABLE Division(
-                division_id INT NOT NULL PRIMARY KEY,
-                division_name TEXT NOT NULL
-            )
-        ''')
-        cursor.executemany('INSERT INTO Division VALUES (?, ?)', division_data)
-        cursor.execute('SELECT * FROM Division')
-        rows = cursor.fetchall()
-    return rows
+#     with sqlite3.connect('database.db') as db:
+#         cursor = db.cursor()
+#         cursor.execute('DROP TABLE IF EXISTS Division')
+#         cursor.execute('''
+#             CREATE TABLE Division(
+#                 division_id INT NOT NULL PRIMARY KEY,
+#                 division_name TEXT NOT NULL
+#             )
+#         ''')
+#         cursor.executemany('INSERT INTO Division VALUES (?, ?)', division_data)
+#         cursor.execute('SELECT * FROM Division')
+#         rows = cursor.fetchall()
+#     return rows
 
 
 # class Team:
@@ -85,21 +94,49 @@ def temp(divisions):
 
 def main():
     json_dict = query_local_cache("teams.json", get_remote_team_data)
-    nfl_json = json_dict.get('teams').get('nfl')
-    divisions = []
-    for element in nfl_json:
-        division = element.get('name')
-        divisions.append(division)
-        for team in element.get('teams'):
-            team_id = team.get('id')
-            team_fullname = team.get('name')
-            team_name = team.get('shortName')
-            team_logo = team.get('logo')
-            team_abbr = team.get('abbrev')
 
-    rows = temp(divisions)
-    for row in rows:
-        print(row)
+    divisions = []
+    for element in json_dict.get('teams').get('nfl'):
+        division = element.get('name')
+        divisions.append((division,))
+
+    teams = []
+    for nfl in json_dict.get('teams').get('nfl'):
+        divison = nfl.get('name')
+        for element in nfl.get('teams'):
+            team_id = element.get('id')
+            team_fullname = element.get('name')
+            team_name = element.get('shortName')
+            team_abbr = element.get('abbrev')
+            team = (team_id, team_fullname, team_name, team_abbr, division)
+            teams.append(team)
+
+    team_links = []
+    for column in json_dict.get('leagueTeams').get('columns'):
+        for group in column.get('groups'):
+            for team in group.get('tms'):
+                team_links_list = []
+                logo = team.get('p')
+                team_links_list.append(('logo', logo))
+                for lk in team.get('lk')[1:-2]:
+                    link_label = lk.get('t')
+                    href = lk.get('u')
+                    link = f'https://www.espn.com{href}'
+                    team_links_list.append((link_label, link))
+                team_links.append(team_links_list)
+    
+    for i, division in enumerate(divisions):
+        print(i + 1, division)
+    for i, team in enumerate(teams):
+        print(i + 1, team)
+    for i, href in enumerate(team_links):
+        print(i + 1, href)
+
+
+
+    # rows = create_division_table(divisions)
+    # for row in rows:
+    #     print(row)
 
 
 if __name__ == '__main__':
