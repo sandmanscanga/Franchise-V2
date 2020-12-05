@@ -4,11 +4,13 @@ import json
 import os
 import sqlite3
 
+URL = 'https://www.espn.com/nfl/teams'
 
-def get_remote_team_data():
+
+def get_remote_data(url):
     '''Get NFL team data from espn site'''
 
-    r = requests.get('https://www.espn.com/nfl/teams')
+    r = requests.get(url)
     soup = BeautifulSoup(r.text, 'lxml')
 
     for script_tag in soup.findAll('script'):
@@ -26,7 +28,7 @@ def get_remote_team_data():
     return json_dict
 
 
-def query_local_cache(filename, remote_func, reload=False):
+def query_local_cache(url, filename, reload=False):
     '''Handle data cache
     
         Check for cache file
@@ -35,25 +37,25 @@ def query_local_cache(filename, remote_func, reload=False):
 
     '''
 
-    filepath = f"cache/{filename}"
-    os.makedirs('cache', exist_ok=True)
+    dir_path = '/'.join(filename.split('/')[:-1])
+    os.makedirs(dir_path, exist_ok=True)
     if reload is True:
         # force reload cache
         print('Force reload')
-        json_dict = remote_func()
-        with open(filepath, 'w') as f:
+        json_dict = get_remote_data(url)
+        with open(filename, 'w') as f:
             json.dump(json_dict, f)
     else:
         try:
-            with open(filepath, 'r') as f:
+            with open(filename, 'r') as f:
                 # cache hit
                 print('Cache hit')
                 json_dict = json.load(f)
         except FileNotFoundError:
             # cache miss, reload cache
             print('Cache miss')
-            json_dict = remote_func()
-            with open(filepath, 'w') as f:
+            json_dict = get_remote_data(url)
+            with open(filename, 'w') as f:
                 json.dump(json_dict, f)
     return json_dict
 
@@ -78,31 +80,18 @@ def query_local_cache(filename, remote_func, reload=False):
 #         rows = cursor.fetchall()
 #     return rows
 
-
-# class Team:
-#     team_id = None
-#     team_fullname = None
-#     team_name = None
-#     team_logo = None
-#     team_abbr = None
-#     team_division = None
-
-
-# class Division:
-#     division_name = None
-
-
-def main():
-    json_dict = query_local_cache("teams.json", get_remote_team_data)
-
+def parse_divisions(json_dict):
     divisions = []
     for element in json_dict.get('teams').get('nfl'):
         division = element.get('name')
         divisions.append((division,))
+    return divisions
 
+
+def parse_teams(json_dict):
     teams = []
     for nfl in json_dict.get('teams').get('nfl'):
-        divison = nfl.get('name')
+        division = nfl.get('name')
         for element in nfl.get('teams'):
             team_id = element.get('id')
             team_fullname = element.get('name')
@@ -110,7 +99,10 @@ def main():
             team_abbr = element.get('abbrev')
             team = (team_id, team_fullname, team_name, team_abbr, division)
             teams.append(team)
+    return teams
 
+
+def parse_team_links(json_dict):
     team_links = []
     for column in json_dict.get('leagueTeams').get('columns'):
         for group in column.get('groups'):
@@ -124,15 +116,31 @@ def main():
                     link = f'https://www.espn.com{href}'
                     team_links_list.append((link_label, link))
                 team_links.append(team_links_list)
-    
-    for i, division in enumerate(divisions):
-        print(i + 1, division)
-    for i, team in enumerate(teams):
-        print(i + 1, team)
-    for i, href in enumerate(team_links):
-        print(i + 1, href)
+    return team_links
 
 
+def main():
+    json_dict = query_local_cache(URL, "cache/teams.json")
+
+    divisions = parse_divisions(json_dict)
+    teams = parse_teams(json_dict)
+    team_links = parse_team_links(json_dict)
+
+    # fetch rosters for each team
+    for team_link_tup in team_links:
+        for team_link in team_link_tup:
+            if team_link[0] == 'roster':
+                dir_name = team_link[1].split('/')[-2]
+                file_name = f'cache/{dir_name}/roster.json'
+                roster_json = query_local_cache(team_link[1], file_name)
+                return
+
+    # for i, division in enumerate(divisions):
+    #     print(i + 1, division)
+    # for i, team in enumerate(teams):
+    #     print(i + 1, team)
+    # for i, href in enumerate(team_links):
+    #     print(i + 1, href)
 
     # rows = create_division_table(divisions)
     # for row in rows:
