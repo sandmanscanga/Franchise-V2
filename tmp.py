@@ -41,7 +41,7 @@ def query_local_cache(url, filename, reload=False):
     os.makedirs(dir_path, exist_ok=True)
     if reload is True:
         # force reload cache
-        print('Force reload')
+        #print('Force reload')
         json_dict = get_remote_data(url)
         with open(filename, 'w') as f:
             json.dump(json_dict, f)
@@ -49,11 +49,11 @@ def query_local_cache(url, filename, reload=False):
         try:
             with open(filename, 'r') as f:
                 # cache hit
-                print('Cache hit')
+                #print('Cache hit')
                 json_dict = json.load(f)
         except FileNotFoundError:
             # cache miss, reload cache
-            print('Cache miss')
+            #print('Cache miss')
             json_dict = get_remote_data(url)
             with open(filename, 'w') as f:
                 json.dump(json_dict, f)
@@ -119,6 +119,73 @@ def parse_team_links(json_dict):
     return team_links
 
 
+"""
+{
+"name": "Darryl Johnson",
+"href": "http://www.espn.com/nfl/player/_/id/3957672/darryl-johnson",
+"uid": "s:20~l:28~a:3957672",
+"guid": "d627a4afa02ffbc9251af98cdcee845c",
+"id": "3957672",
+"height": "6' 6\"",
+"weight": "253 lbs",
+"age": 23,
+"position": "DE",
+"jersey": "92",
+"birthDate": "04/04/97",
+"headshot": "https://a.espncdn.com/i/headshots/nfl/players/full/3957672.png",
+"lastName": "Darryl Johnson",
+"experience": 2,
+"college": "North Carolina A&T",
+"birthPlace": "Kingsland, GA"
+},
+
+"""
+
+def parse_roster(roster_json, team_abbr):
+    roster = []
+    for group in roster_json.get("roster").get("groups"):
+        for athlete in group.get("athletes"):
+            name = athlete.get("name")
+            link = athlete.get("href")
+            uid = athlete.get("uid")
+            guid = athlete.get("guid")
+            height = athlete.get("height")
+            weight = athlete.get("weight")
+            age = athlete.get("age")
+            position = athlete.get("position")
+            jersey = athlete.get("jersey")
+            headshot = athlete.get("headshot")
+            experience = athlete.get("experience")
+            college = athlete.get("college")
+            athlete = (
+                name, link, uid, guid, height, weight,
+                age, position, jersey, headshot,
+                experience, college, team_abbr
+            )
+            roster.append(athlete)
+    return roster
+
+
+def fetch_rosters(team_links):
+    rosters = []
+    for team_link_tup in team_links:
+        team_abbr = team_link_tup[-1][1].split("/")[-2]
+        for team_link in team_link_tup:
+            if team_link[0] == 'roster':
+                dir_name = team_link[1].split('/')[-2]
+                file_name = f'cache/{dir_name}/roster.json'
+                roster_json = query_local_cache(team_link[1], file_name)
+                roster = parse_roster(roster_json, team_abbr)
+                rosters.append(roster)
+    return rosters
+
+
+def gen_players(rosters):
+    for roster in rosters:
+        for player in roster:
+            yield player
+
+
 def main():
     json_dict = query_local_cache(URL, "cache/teams.json")
 
@@ -127,13 +194,9 @@ def main():
     team_links = parse_team_links(json_dict)
 
     # fetch rosters for each team
-    for team_link_tup in team_links:
-        for team_link in team_link_tup:
-            if team_link[0] == 'roster':
-                dir_name = team_link[1].split('/')[-2]
-                file_name = f'cache/{dir_name}/roster.json'
-                roster_json = query_local_cache(team_link[1], file_name)
-                return
+    rosters = fetch_rosters(team_links)
+    for player in gen_players(rosters):
+        print(json.dumps(player))
 
     # for i, division in enumerate(divisions):
     #     print(i + 1, division)
