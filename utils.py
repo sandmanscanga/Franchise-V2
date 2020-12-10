@@ -3,6 +3,9 @@ import json
 import os
 from bs4 import BeautifulSoup
 import requests
+from logger import LOGGER as Logger
+
+LOGGER = Logger.get_logger('utils')
 
 
 def get_remote_data(url):
@@ -17,7 +20,9 @@ def get_remote_data(url):
             target_script = script_tag
             break
     else:
-        raise Exception('Script not found')
+        err_msg = 'Script not found'
+        LOGGER.error(err_msg)
+        raise Exception(err_msg)
 
     data = str(target_script)
     data = '='.join(data.split('=')[2:])
@@ -41,7 +46,7 @@ def query_local_cache(url, filename, reload=False):
     os.makedirs(dir_path, exist_ok=True)
     if reload is True:
         # force reload cache
-        #print('Force reload')
+        LOGGER.debug(f'Force reload: {url}')
         json_dict = get_remote_data(url)
         with open(filename, 'w') as file:
             json.dump(json_dict, file)
@@ -49,11 +54,11 @@ def query_local_cache(url, filename, reload=False):
         try:
             with open(filename, 'r') as file:
                 # cache hit
-                #print('Cache hit')
+                LOGGER.debug(f'Cache hit: {filename}')
                 json_dict = json.load(file)
         except FileNotFoundError:
             # cache miss, reload cache
-            #print('Cache miss')
+            LOGGER.debug(f'Cache miss: {url}')
             json_dict = get_remote_data(url)
             with open(filename, 'w') as file:
                 json.dump(json_dict, file)

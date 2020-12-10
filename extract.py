@@ -1,7 +1,7 @@
 '''Extract JSON data from ESPN'''
 
 
-def parse_divisions(json_dict):
+def extract_divisions(json_dict):
     divisions = []
     for element in json_dict.get('teams').get('nfl'):
         division_name = element.get('name')
@@ -10,7 +10,7 @@ def parse_divisions(json_dict):
     return divisions
 
 
-def parse_teams(json_dict):
+def extract_teams(json_dict):
     teams = []
     for nfl in json_dict.get('teams').get('nfl'):
         division = nfl.get('name')
@@ -24,7 +24,7 @@ def parse_teams(json_dict):
     return teams
 
 
-def parse_team_links(json_dict):
+def extract_team_links(json_dict):
     team_links = []
     for column in json_dict.get('leagueTeams').get('columns'):
         for group in column.get('groups'):
@@ -39,4 +39,26 @@ def parse_team_links(json_dict):
                     team_links_list.append((link_label, link))
                 team_links.append(team_links_list)
     return team_links
-    
+
+
+def extract_roster(roster_json, team_abbr):
+    roster = []
+    for group in roster_json.get("roster").get("groups"):
+        for athlete in group.get("athletes"):
+            athlete_tup = (
+                athlete.get("name"),
+                athlete.get("href"),
+                athlete.get("uid"),
+                athlete.get("guid"),
+                athlete.get("height"),
+                athlete.get("weight"),
+                athlete.get("age"),
+                athlete.get("position"),
+                athlete.get("jersey"),
+                athlete.get("headshot"),
+                athlete.get("experience"),
+                athlete.get("college"),
+                team_abbr
+            )
+            roster.append(athlete_tup)
+    return roster
