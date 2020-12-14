@@ -3,7 +3,7 @@ import json
 import os
 from bs4 import BeautifulSoup
 import requests
-from logger import LOGGER as Logger
+from project.logger import LOGGER as Logger
 
 LOGGER = Logger.get_logger('utils')
 
