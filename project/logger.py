@@ -2,6 +2,7 @@
 import logging
 import sys
 import os
+import project.consts
 
 # pylint: disable=too-few-public-methods
 
@@ -131,4 +132,4 @@ class Logger:
         self.logger.critical(*args, **kwargs)
 
 
-LOGGER = Logger('root', 10)
+LOGGER = Logger('project', project.consts.LOG_LEVEL)

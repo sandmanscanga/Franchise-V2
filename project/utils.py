@@ -4,13 +4,32 @@ import os
 from bs4 import BeautifulSoup
 import requests
 from project.logger import LOGGER as Logger
+import project.consts
 
 LOGGER = Logger.get_logger('utils')
+
+
+def build_cache_path(path, *paths):
+    """Build full cache path"""
+
+    path_tup = (project.consts.CACHE_BASE, path) + paths
+    cache_path = os.path.sep.join(path_tup)
+    return cache_path
+
+
+def make_cache_dir(cache_path):
+    """Creates cache directory"""
+
+    sep = os.path.sep
+    dir_paths = cache_path.split(sep)[:-1]
+    dir_path = sep.join(dir_paths)
+    os.makedirs(dir_path, exist_ok=True)
 
 
 def get_remote_data(url):
     '''Get data from espn url'''
 
+    LOGGER.debug(f"Getting remote url: {url}")
     resp = requests.get(url)
     soup = BeautifulSoup(resp.text, 'lxml')
 
@@ -33,7 +52,7 @@ def get_remote_data(url):
     return json_dict
 
 
-def query_local_cache(url, filename, reload=False):
+def query_local_cache(url, cache_path, reload=False):
     '''Handle data cache
 
         Check for cache file
@@ -42,24 +61,23 @@ def query_local_cache(url, filename, reload=False):
 
     '''
 
-    dir_path = '/'.join(filename.split('/')[:-1])
-    os.makedirs(dir_path, exist_ok=True)
+    make_cache_dir(cache_path)
     if reload is True:
         # force reload cache
         LOGGER.debug(f'Force reload: {url}')
         json_dict = get_remote_data(url)
-        with open(filename, 'w') as file:
+        with open(cache_path, 'w') as file:
             json.dump(json_dict, file)
     else:
         try:
-            with open(filename, 'r') as file:
+            with open(cache_path, 'r') as file:
                 # cache hit
-                LOGGER.debug(f'Cache hit: {filename}')
+                LOGGER.debug(f'Cache hit: {cache_path}')
                 json_dict = json.load(file)
         except FileNotFoundError:
             # cache miss, reload cache
-            LOGGER.debug(f'Cache miss: {url}')
+            LOGGER.debug(f'Cache miss: {cache_path}')
             json_dict = get_remote_data(url)
-            with open(filename, 'w') as file:
+            with open(cache_path, 'w') as file:
                 json.dump(json_dict, file)
     return json_dict

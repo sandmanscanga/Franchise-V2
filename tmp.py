@@ -1,46 +1,50 @@
 import json
 import project.utils
-import project.extract
+import project.consts
+import project.controller
 from project.logger import LOGGER as Logger
 
 LOGGER = Logger.get_logger('tmp')
 
-URL = 'https://www.espn.com/nfl/teams'
 
+def fetch_stat_types(team_link):
+    stats_link = team_link[1][1]
+    dir_name = team_link[1][1].split('/')[-2]
+    file_paths = (dir_name, "stats.json")
+    cache_path = project.utils.build_cache_path(*file_paths)
+    stats_json = project.utils.query_local_cache(stats_link, cache_path)
+    stat_dict_data = stats_json.get("stats").get("dictionary")
 
-def fetch_rosters(team_links):
-    '''Get roster team data from espn site'''
+    stat_types = []
+    for stat_key, value in stat_dict_data.items():
+        stat_type = (
+            stat_key,
+            value.get("abbrev"),
+            value.get("statName"),
+            value.get("shortDesc"),
+            value.get("desc"),
+            value.get("group")
+        )
+        stat_types.append(stat_type)
 
-    rosters = []
-    for team_link_tup in team_links:
-        team_abbr = team_link_tup[-1][1].split("/")[-2]
-        for team_link in team_link_tup:
-            if team_link[0] == 'roster':
-                dir_name = team_link[1].split('/')[-2]
-                file_name = f'cache/{dir_name}/roster.json'
-                roster_json = project.utils.query_local_cache(team_link[1], file_name)
-                roster = project.extract.extract_roster(roster_json, team_abbr)
-                rosters.append(roster)
-    return rosters
-
-
-def gen_players(rosters):
-    for roster in rosters:
-        for player in roster:
-            yield player
+    stat_types = tuple(stat_types)
+    return stat_types
 
 
 def main():
-    nfl_json = project.utils.query_local_cache(URL, "cache/teams.json")
+    nfl_url = project.consts.BASE_URL + "/nfl/teams"
+    nfl_cache = project.utils.build_cache_path("nfl.json")
+    nfl_json = project.utils.query_local_cache(nfl_url, nfl_cache)
 
-    divisions = project.extract.extract_divisions(nfl_json)
-    teams = project.extract.extract_teams(nfl_json)
-    team_links = project.extract.extract_team_links(nfl_json)
+    divisions = project.controller.extract_divisions(nfl_json)
+    teams = project.controller.extract_teams(nfl_json)
+    team_links = project.controller.extract_team_links(nfl_json)
 
     # fetch rosters for each team
-    rosters = fetch_rosters(team_links)
-    for player in gen_players(rosters):
-        LOGGER.info(json.dumps(player))
+    rosters = project.controller.fetch_rosters(team_links)
+
+    stat_types = fetch_stat_types(team_links[0])
+    print(json.dumps(stat_types))
 
 
 if __name__ == '__main__':
